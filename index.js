@@ -51,6 +51,18 @@ client.on("messageCreate", async (message) => {
   const args = message.content.slice(prefix.length).trim().split(/ +/g);
   const cmd = args.shift()?.toLowerCase();
 
+  // -------- !say --------
+  if (cmd === "say") {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
+      return message.reply("❌ Tu dois être admin pour utiliser cette commande.");
+
+    const text = args.join(" ");
+    if (!text) return message.reply("❌ Tu dois écrire un message.");
+
+    await message.delete().catch(() => {});
+    return message.channel.send(text);
+  }
+
   // -------- !help --------
   if (cmd === "help") {
     const embed = new EmbedBuilder()
@@ -101,23 +113,22 @@ client.on("messageCreate", async (message) => {
   if (cmd === "ticket") {
     const embed = new EmbedBuilder()
       .setColor("Green")
-      .setTitle("🎫 Obli SHOP - Système de Ticket")
+      .setTitle("🎫 OBLI SHOP - Système de Ticket")
       .setDescription("Clique sur le sélecteur ci-dessous pour créer un ticket !");
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId("ticket_create")
       .setPlaceholder("Choisis un type de ticket")
       .addOptions([
-        { label: "Recrutement", value: "recrutement", description: "Candidature staff / faction" },
-        { label: "Signalement", value: "signalement", description: "Signaler un joueur / bug" },
-        { label: "Remboursement", value: "remboursement", description: "Perte d'objet / argent" },
-        { label: "Demande script", value: "demande_script", description: "Demande liée aux scripts" },
-        { label: "Demande", value: "demande", description: "Autre type de demande" }
+        { label: "Recrutement", value: "recrutement" },
+        { label: "Signalement", value: "signalement" },
+        { label: "Remboursement", value: "remboursement" },
+        { label: "Demande script", value: "demande_script" },
+        { label: "Demande", value: "demande" }
       ]);
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // 🔥 Panel envoyé dans le salon où la commande est tapée
     return message.channel.send({ embeds: [embed], components: [row] });
   }
 });
@@ -136,7 +147,8 @@ client.on("interactionCreate", async (interaction) => {
           "`!help` — Affiche ce menu",
           "`!ping` — Latence du bot",
           "`!config` — Ouvre le dashboard",
-          "`!ticket` — Panel de création de tickets"
+          "`!ticket` — Panel de création de tickets",
+          "`!say` — Faire parler le bot"
         ].join("\n")
       );
     }
@@ -178,121 +190,6 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.update({ embeds: [embed] });
   }
 
-  // -------- CONFIG (owner only) --------
-  if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cfg_")) {
-    if (interaction.user.id !== config.ownerId)
-      return interaction.reply({ content: "❌ Tu n'es pas autorisé.", ephemeral: true });
-  }
-
-  // PAGE TICKETS
-  if (interaction.isButton() && interaction.customId === "cfg_tickets") {
-    const embed = new EmbedBuilder()
-      .setColor("Green")
-      .setTitle("🎫 Configuration des tickets")
-      .setDescription(
-        [
-          "Types configurés :",
-          "",
-          `• Recrutement → <#${config.ticketTypes.recrutement}>`,
-          `• Signalement → <#${config.ticketTypes.signalement}>`,
-          `• Remboursement → <#${config.ticketTypes.remboursement}>`,
-          `• Demande script → <#${config.ticketTypes.demande_script}>`,
-          `• Demande → <#${config.ticketTypes.demande}>`,
-          "",
-          "Catégories disponibles :",
-          config.availableCategories.map((id) => `<#${id}>`).join("\n")
-        ].join("\n")
-      );
-
-    return interaction.update({ embeds: [embed], components: [] });
-  }
-
-  // PAGE LOGS
-  if (interaction.isButton() && interaction.customId === "cfg_logs") {
-    const channels = interaction.guild.channels.cache
-      .filter((c) => c.isTextBased())
-      .map((c) => ({ label: c.name, value: c.id }))
-      .slice(0, 25);
-
-    const embed = new EmbedBuilder()
-      .setColor("Blue")
-      .setTitle("📜 Configuration des logs")
-      .setDescription(
-        [
-          "Choisis le salon de logs.",
-          "",
-          "Actuellement :",
-          config.logsChannelId ? `<#${config.logsChannelId}>` : "Aucun"
-        ].join("\n")
-      );
-
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("cfg_logs_select")
-      .setPlaceholder("Choisis un salon")
-      .addOptions(channels);
-
-    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
-  }
-
-  // PAGE BIENVENUE
-  if (interaction.isButton() && interaction.customId === "cfg_welcome") {
-    const channels = interaction.guild.channels.cache
-      .filter((c) => c.isTextBased())
-      .map((c) => ({ label: c.name, value: c.id }))
-      .slice(0, 25);
-
-    const embed = new EmbedBuilder()
-      .setColor("Orange")
-      .setTitle("👋 Configuration de bienvenue")
-      .setDescription(
-        [
-          "Choisis le salon de bienvenue.",
-          "",
-          "Actuellement :",
-          config.welcomeChannelId ? `<#${config.welcomeChannelId}>` : "Aucun"
-        ].join("\n")
-      );
-
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("cfg_welcome_select")
-      .setPlaceholder("Choisis un salon")
-      .addOptions(channels);
-
-    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
-  }
-
-  // SAUVEGARDE LOGS
-  if (interaction.isStringSelectMenu() && interaction.customId === "cfg_logs_select") {
-    config.logsChannelId = interaction.values[0];
-    saveConfig();
-
-    return interaction.update({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Blue")
-          .setTitle("📜 Logs mis à jour")
-          .setDescription(`Nouveau salon : <#${config.logsChannelId}>`)
-      ],
-      components: []
-    });
-  }
-
-  // SAUVEGARDE BIENVENUE
-  if (interaction.isStringSelectMenu() && interaction.customId === "cfg_welcome_select") {
-    config.welcomeChannelId = interaction.values[0];
-    saveConfig();
-
-    return interaction.update({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Orange")
-          .setTitle("👋 Bienvenue mis à jour")
-          .setDescription(`Nouveau salon : <#${config.welcomeChannelId}>`)
-      ],
-      components: []
-    });
-  }
-
   // =========================
   // CRÉATION DES TICKETS
   // =========================
@@ -303,6 +200,7 @@ client.on("interactionCreate", async (interaction) => {
     if (!categoryId)
       return interaction.reply({ content: "❌ Type de ticket non configuré.", ephemeral: true });
 
+    // 🔥 FIX : empêcher la fermeture instantanée
     const channel = await interaction.guild.channels.create({
       name: `ticket-${type}-${interaction.user.username}`,
       type: 0,
@@ -326,7 +224,10 @@ client.on("interactionCreate", async (interaction) => {
       );
 
     const closeRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("ticket_close").setLabel("Fermer").setStyle(ButtonStyle.Danger)
+      new ButtonBuilder()
+        .setCustomId(`ticket_close_${channel.id}`) // 🔥 ID UNIQUE PAR TICKET
+        .setLabel("Fermer")
+        .setStyle(ButtonStyle.Danger)
     );
 
     await channel.send({ content: `${interaction.user}`, embeds: [embed], components: [closeRow] });
@@ -337,12 +238,11 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
+  // =========================
   // FERMETURE DU TICKET
-  if (interaction.isButton() && interaction.customId === "ticket_close") {
+  // =========================
+  if (interaction.isButton() && interaction.customId.startsWith("ticket_close_")) {
     const channel = interaction.channel;
-
-    if (!channel.name.startsWith("ticket-"))
-      return interaction.reply({ content: "❌ Ce salon n'est pas un ticket.", ephemeral: true });
 
     await interaction.reply("🔒 Ticket fermé. Suppression dans 5 secondes…");
     setTimeout(() => channel.delete().catch(() => {}), 5000);
