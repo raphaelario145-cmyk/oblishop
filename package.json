@@ -1,0 +1,12 @@
+{
+  "name": "oblishopprotect",
+  "version": "1.0.0",
+  "description": "Bot Discord avec tickets multi-catégories et dashboard",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.2"
+  }
+}
